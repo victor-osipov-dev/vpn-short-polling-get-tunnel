@@ -221,18 +221,24 @@ async def poll_handler(request: web.Request):
     ts = qs.get("t")
     cid_b64 = request.headers.get("X-Cid")
     mac = request.headers.get("X-Mac")
+
+    logger.info("poll: method=%s path=%s ts=%s cid=%s mac=%s hdrs=%s",
+                request.method, request.path, ts, cid_b64,
+                bool(mac), dict(request.headers))
+
     if not all([cid_b64, ts, mac]):
         logger.warning("400 missing params: cid=%s ts=%s mac=%s", cid_b64 is not None, ts, mac is not None)
         return web.Response(status=400, text="missing params")
 
+    read_body = await request.read()
     d_b64 = request.headers.get("X-Data")
     if not d_b64:
-        d_b64 = (await request.read()).decode()
+        d_b64 = read_body.decode()
     if not d_b64:
         d_b64 = qs.get("d")
     if not d_b64:
-        logger.warning("400 missing data: cid=%s ts=%s X-Data=%s body_len=%s", cid_b64, ts,
-                       bool(request.headers.get("X-Data")), len(await request.read()))
+        logger.warning("400 missing data: cid=%s ts=%s X-Data=%s body_len=%s",
+                       cid_b64, ts, bool(request.headers.get("X-Data")), len(read_body))
         return web.Response(status=400, text="missing data")
 
     try:
@@ -266,7 +272,8 @@ async def poll_handler(request: web.Request):
     try:
         plaintext = decrypt(enc_key, blob)
         frames = unpack_frames(plaintext)
-    except Exception:
+    except Exception as e:
+        logger.warning("400 bad payload: %s", e)
         return web.Response(status=400, text="bad payload")
 
     mgr: SessionManager = app["session_mgr"]
