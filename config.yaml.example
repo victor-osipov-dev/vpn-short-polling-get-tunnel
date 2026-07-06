@@ -1,0 +1,30 @@
+# ============================================================
+# vpn-poller config — скопируйте в config.yaml и настройте
+# ============================================================
+mode: client
+
+client:
+  socks5:
+    bind_host: 127.0.0.1
+    bind_port: 8888
+  server_url: "https://YOUR_SERVER_IP:8443/poll"
+  poll_interval_ms: 200
+  poll_jitter_ms: 50
+  max_chunk_bytes: 4096
+  verify_tls: true
+
+server:
+  bind_host: 0.0.0.0
+  bind_port: 8443
+  max_chunk_bytes: 4096
+  idle_timeout_seconds: 200
+  tls:
+    cert: "/path/to/fullchain.pem"
+    key: "/path/to/privkey.pem"
+
+security:
+  psk: "REPLACE_WITH_GENERATED_PSK"
+  hmac_window_seconds: 30
+
+logging:
+  level: DEBUG
