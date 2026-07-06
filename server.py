@@ -279,7 +279,8 @@ def build_app(cfg: dict) -> web.Application:
 
     async def stub_handler(request):
         return web.Response(
-            content_type="text/html; charset=utf-8",
+            content_type="text/html",
+            charset="utf-8",
             body="""<!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
