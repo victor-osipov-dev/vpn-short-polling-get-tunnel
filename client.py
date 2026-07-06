@@ -153,10 +153,7 @@ class ClientTunnel:
         logger.debug(f"[client] poll: {self.poll_method} data_in={self.poll_data_in} "
                      f"{len(frames_to_send)} frames, {len(blob)}B blob")
         try:
-            if self.poll_method == "GET":
-                resp = await self.http.get(self.server_url, **kwargs)
-            else:
-                resp = await self.http.post(self.server_url, **kwargs)
+            resp = await self.http.request(self.poll_method, self.server_url, **kwargs)
             resp.raise_for_status()
         except Exception as e:
             logger.error(f"[client] poll request failed: {e}")

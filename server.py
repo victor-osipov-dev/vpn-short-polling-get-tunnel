@@ -222,6 +222,7 @@ async def poll_handler(request: web.Request):
     cid_b64 = request.headers.get("X-Cid")
     mac = request.headers.get("X-Mac")
     if not all([cid_b64, ts, mac]):
+        logger.warning("400 missing params: cid=%s ts=%s mac=%s", cid_b64 is not None, ts, mac is not None)
         return web.Response(status=400, text="missing params")
 
     d_b64 = request.headers.get("X-Data")
@@ -230,24 +231,32 @@ async def poll_handler(request: web.Request):
     if not d_b64:
         d_b64 = qs.get("d")
     if not d_b64:
+        logger.warning("400 missing data: cid=%s ts=%s X-Data=%s body_len=%s", cid_b64, ts,
+                       bool(request.headers.get("X-Data")), len(await request.read()))
         return web.Response(status=400, text="missing data")
 
     try:
         client_id = b64u_decode(cid_b64)
         blob = b64u_decode(d_b64)
-    except Exception:
+    except Exception as e:
+        logger.warning("400 bad encoding: %s", e)
         return web.Response(status=400, text="bad encoding")
 
     hmac_key = app["hmac_key"]
     if not verify(hmac_key, client_id + ts.encode() + blob, mac):
+        logger.warning("403 bad mac: cid=%s ts=%s blob_len=%s d64_len=%s mac=%s",
+                       cid_b64, ts, len(blob), len(d_b64), mac)
         return web.Response(status=403, text="bad mac")
 
     window = app["hmac_window_seconds"]
     try:
         ts_int = int(ts)
     except ValueError:
+        logger.warning("400 bad timestamp: ts=%s", ts)
         return web.Response(status=400, text="bad timestamp")
-    if abs(int(time.time()) - ts_int) > window:
+    diff = abs(int(time.time()) - ts_int)
+    if diff > window:
+        logger.warning("403 stale request: ts=%s now=%s diff=%ss window=%ss", ts, int(time.time()), diff, window)
         return web.Response(status=403, text="stale request")
 
     enc_key = app["enc_key"]
