@@ -340,13 +340,13 @@ fun LogTab(logs: SnapshotStateList<String>) {
             SmallButton("Copy all") {
                 val text = logs.joinToString("\n")
                 val clip = ClipData.newPlainText("proxy_log", text)
-                context.getSystemService<ClipboardManager>()?.setPrimaryClip(clip)
+                (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
             }
             SmallButton("Copy sel") {
                 val text = selectedIndices.sorted().map { logs[it] }.joinToString("\n")
                 if (text.isNotEmpty()) {
                     val clip = ClipData.newPlainText("proxy_log", text)
-                    context.getSystemService<ClipboardManager>()?.setPrimaryClip(clip)
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
                 }
             }
             SmallButton("Clear") {
