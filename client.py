@@ -141,13 +141,12 @@ class ClientTunnel:
         params = {
             "cid": b64u_encode(self.client_id),
             "t": ts,
-            "d": b64u_encode(blob),
             "mac": mac,
         }
         
         logger.debug(f"[client] poll: sending {len(frames_to_send)} frames, batch size {len(blob)}")
         try:
-            resp = await self.http.get(self.server_url, params=params)
+            resp = await self.http.post(self.server_url, params=params, content=b64u_encode(blob))
             resp.raise_for_status()
         except Exception as e:
             logger.error(f"[client] poll request failed: {e}")

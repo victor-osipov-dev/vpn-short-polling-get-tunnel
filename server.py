@@ -218,9 +218,13 @@ class SessionManager:
 async def poll_handler(request: web.Request):
     app = request.app
     qs = request.query
-    cid_b64, ts, d_b64, mac = qs.get("cid"), qs.get("t"), qs.get("d"), qs.get("mac")
-    if not all([cid_b64, ts, d_b64, mac]):
+    cid_b64, ts, mac = qs.get("cid"), qs.get("t"), qs.get("mac")
+    if not all([cid_b64, ts, mac]):
         return web.Response(status=400, text="missing params")
+
+    d_b64 = (await request.read()).decode()
+    if not d_b64:
+        return web.Response(status=400, text="missing body")
 
     try:
         client_id = b64u_decode(cid_b64)
@@ -270,7 +274,7 @@ def build_app(cfg: dict) -> web.Application:
         max_chunk_bytes=int(server_cfg.get("max_chunk_bytes", 4096)),
         idle_timeout=int(server_cfg.get("idle_timeout_seconds", 120)),
     )
-    app.router.add_get("/poll", poll_handler)
+    app.router.add_post("/poll", poll_handler)
 
     async def _start_background(app):
         app["reaper_task"] = asyncio.create_task(app["session_mgr"].reap_idle_clients())
