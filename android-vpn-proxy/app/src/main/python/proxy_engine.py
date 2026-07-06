@@ -26,68 +26,74 @@ logger = logging.getLogger("proxy")
 FLAG_NEW = 1
 FLAG_DATA = 2
 FLAG_FIN = 4
+SESSION_ID_LEN = 16
+_FRAME_HEADER_FMT = "!16sIBI"
+_FRAME_HEADER_LEN = struct.calcsize(_FRAME_HEADER_FMT)
 
 
 class Frame:
     __slots__ = ("session_id", "seq", "flags", "payload")
 
-    def __init__(self, session_id: bytes, seq: int, flags: int, payload: bytes):
+    def __init__(self, session_id: bytes, seq: int, flags: int, payload: bytes = b""):
+        if len(session_id) != SESSION_ID_LEN:
+            raise ValueError("session_id must be 16 bytes")
         self.session_id = session_id
         self.seq = seq
         self.flags = flags
         self.payload = payload
 
+    def encode(self) -> bytes:
+        return struct.pack(_FRAME_HEADER_FMT, self.session_id,
+                           self.seq & 0xFFFFFFFF, self.flags, len(self.payload)) + self.payload
+
+    @classmethod
+    def decode(cls, data: bytes, offset: int = 0):
+        if offset + _FRAME_HEADER_LEN > len(data):
+            raise ValueError("truncated frame header")
+        sid, seq, flags, plen = struct.unpack_from(_FRAME_HEADER_FMT, data, offset)
+        offset += _FRAME_HEADER_LEN
+        if offset + plen > len(data):
+            raise ValueError("truncated frame payload")
+        payload = data[offset:offset + plen]
+        offset += plen
+        return cls(sid, seq, flags, payload), offset
+
     @classmethod
     def new_frame(cls, session_id: bytes, seq: int, host: str, port: int):
-        host_bytes = host.encode()
-        payload = bytes([len(host_bytes)]) + host_bytes + struct.pack("!H", port)
+        host_b = host.encode()
+        if len(host_b) > 255:
+            raise ValueError("host too long")
+        payload = struct.pack("!B", len(host_b)) + host_b + struct.pack("!H", port)
         return cls(session_id, seq, FLAG_NEW, payload)
 
     def parse_new_target(self):
         hl = self.payload[0]
-        host = self.payload[1 : 1 + hl].decode()
-        port = struct.unpack("!H", self.payload[1 + hl : 1 + hl + 2])[0]
+        host = self.payload[1:1 + hl].decode()
+        port = struct.unpack_from("!H", self.payload, 1 + hl)[0]
         return host, port
 
 
 def pack_frames(frames) -> bytes:
-    buf = bytearray()
+    out = bytearray(struct.pack("!H", len(frames)))
     for f in frames:
-        sid_len = len(f.session_id)
-        flags = f.flags
-        payload = f.payload
-        # session_id (16) + seq (4) + flags (1) + payload_len (4) + payload
-        buf.extend(struct.pack("!B", sid_len))
-        buf.extend(f.session_id)
-        buf.extend(struct.pack("!I", f.seq))
-        buf.extend(struct.pack("!B", flags))
-        buf.extend(struct.pack("!I", len(payload)))
-        buf.extend(payload)
-    return bytes(buf)
+        out += f.encode()
+    return bytes(out)
 
 
 def unpack_frames(data: bytes):
+    if len(data) < 2:
+        return []
+    count = struct.unpack_from("!H", data, 0)[0]
+    offset = 2
     frames = []
-    offset = 0
-    while offset < len(data):
-        sid_len = data[offset]
-        offset += 1
-        session_id = data[offset : offset + sid_len]
-        offset += sid_len
-        seq = struct.unpack("!I", data[offset : offset + 4])[0]
-        offset += 4
-        flags = data[offset]
-        offset += 1
-        plen = struct.unpack("!I", data[offset : offset + 4])[0]
-        offset += 4
-        payload = data[offset : offset + plen]
-        offset += plen
-        frames.append(Frame(session_id, seq, flags, payload))
+    for _ in range(count):
+        f, offset = Frame.decode(data, offset)
+        frames.append(f)
     return frames
 
 
 def new_session_id() -> bytes:
-    return os.urandom(16)
+    return os.urandom(SESSION_ID_LEN)
 
 # ── Crypto ────────────────────────────────────────────────────────────
 
