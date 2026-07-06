@@ -64,6 +64,8 @@ class ClientTunnel:
         self.poll_interval_ms = int(client_cfg.get("poll_interval_ms", 200))
         self.poll_jitter_ms = int(client_cfg.get("poll_jitter_ms", 50))
         self.max_chunk_bytes = int(client_cfg.get("max_chunk_bytes", 4096))
+        self.poll_method = client_cfg.get("poll_method", "POST").upper()
+        self.poll_data_in = client_cfg.get("poll_data_in", "body")
         verify_tls = client_cfg.get("verify_tls", True)
 
         self.enc_key = derive_key(sec_cfg["psk"])
@@ -134,24 +136,27 @@ class ClientTunnel:
             for sid in dead_sids:
                 del self.sessions[sid]
 
-        # Даже если нечего слать, всё равно опрашиваем сервер — короткий GET
         batch = pack_frames(frames_to_send)
         blob = encrypt(self.enc_key, batch)
         ts = str(int(time.time()))
         mac = sign(self.hmac_key, self.client_id + ts.encode() + blob)
 
-        params = {
-            "t": ts,
-            "nonce": os.urandom(5).hex(),
-        }
-        headers = {
-            "X-Cid": b64u_encode(self.client_id),
-            "X-Mac": mac,
-        }
+        params = {"t": ts, "nonce": os.urandom(5).hex()}
+        headers = {"X-Cid": b64u_encode(self.client_id), "X-Mac": mac}
+        if self.poll_data_in == "header":
+            headers["X-Data"] = b64u_encode(blob)
 
-        logger.debug(f"[client] poll: sending {len(frames_to_send)} frames, batch size {len(blob)}")
+        kwargs = {"params": params, "headers": headers}
+        if self.poll_data_in == "body":
+            kwargs["content"] = b64u_encode(blob)
+
+        logger.debug(f"[client] poll: {self.poll_method} data_in={self.poll_data_in} "
+                     f"{len(frames_to_send)} frames, {len(blob)}B blob")
         try:
-            resp = await self.http.post(self.server_url, params=params, headers=headers, content=b64u_encode(blob))
+            if self.poll_method == "GET":
+                resp = await self.http.get(self.server_url, **kwargs)
+            else:
+                resp = await self.http.post(self.server_url, **kwargs)
             resp.raise_for_status()
         except Exception as e:
             logger.error(f"[client] poll request failed: {e}")

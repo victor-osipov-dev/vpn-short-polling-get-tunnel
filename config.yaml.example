@@ -13,6 +13,8 @@ client:
   poll_jitter_ms: 50
   max_chunk_bytes: 4096
   verify_tls: true
+  poll_method: POST          # GET or POST
+  poll_data_in: body         # body or header — куда класть d (зашифрованные данные)
 
 server:
   bind_host: 0.0.0.0

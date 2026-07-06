@@ -224,9 +224,13 @@ async def poll_handler(request: web.Request):
     if not all([cid_b64, ts, mac]):
         return web.Response(status=400, text="missing params")
 
-    d_b64 = (await request.read()).decode()
+    d_b64 = request.headers.get("X-Data")
     if not d_b64:
-        return web.Response(status=400, text="missing body")
+        d_b64 = (await request.read()).decode()
+    if not d_b64:
+        d_b64 = qs.get("d")
+    if not d_b64:
+        return web.Response(status=400, text="missing data")
 
     try:
         client_id = b64u_decode(cid_b64)
@@ -277,7 +281,8 @@ def build_app(cfg: dict) -> web.Application:
         idle_timeout=int(server_cfg.get("idle_timeout_seconds", 120)),
     )
     poll_path = server_cfg.get("poll_path", "/poll")
-    app.router.add_post(poll_path, poll_handler)
+    app.router.add_route("GET", poll_path, poll_handler)
+    app.router.add_route("POST", poll_path, poll_handler)
 
     async def stub_handler(request):
         return web.Response(
