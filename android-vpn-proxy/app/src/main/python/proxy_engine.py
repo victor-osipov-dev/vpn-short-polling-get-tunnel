@@ -92,10 +92,18 @@ def new_session_id() -> bytes:
 # ── Crypto ────────────────────────────────────────────────────────────
 
 def derive_key(psk: str) -> bytes:
-    return hashlib.pbkdf2_hmac("sha256", psk.encode(), b"vpn-poller-key", 100000, 32)
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    from cryptography.hazmat.primitives import hashes
+    raw = base64.b64decode(psk)
+    hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"vpn-poller-enc")
+    return hkdf.derive(raw)
 
 def derive_hmac_key(psk: str) -> bytes:
-    return hashlib.pbkdf2_hmac("sha256", psk.encode(), b"vpn-poller-hmac", 100000, 32)
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    from cryptography.hazmat.primitives import hashes
+    raw = base64.b64decode(psk)
+    hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"vpn-poller-hmac")
+    return hkdf.derive(raw)
 
 def encrypt(key: bytes, plaintext: bytes) -> bytes:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM

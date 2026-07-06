@@ -244,8 +244,11 @@ async def poll_handler(request: web.Request):
 
     hmac_key = app["hmac_key"]
     if not verify(hmac_key, client_id + ts.encode() + blob, mac):
-        logger.warning("403 bad mac: cid=%s ts=%s blob_len=%s d64_len=%s mac=%s",
-                       cid_b64, ts, len(blob), len(d_b64), mac)
+        from crypto_utils import sign as _sign
+        expected = _sign(hmac_key, client_id + ts.encode() + blob)
+        logger.warning("403 bad mac: cid=%s ts=%s blob_len=%s d64_len=%s "
+                       "got_mac=%s expected_mac=%s",
+                       cid_b64, ts, len(blob), len(d_b64), mac, expected)
         return web.Response(status=403, text="bad mac")
 
     window = app["hmac_window_seconds"]
