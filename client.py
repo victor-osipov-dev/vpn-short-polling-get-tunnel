@@ -141,14 +141,17 @@ class ClientTunnel:
         mac = sign(self.hmac_key, self.client_id + ts.encode() + blob)
 
         params = {
-            "cid": b64u_encode(self.client_id),
             "t": ts,
-            "mac": mac,
+            "nonce": os.urandom(5).hex(),
         }
-        
+        headers = {
+            "X-Cid": b64u_encode(self.client_id),
+            "X-Mac": mac,
+        }
+
         logger.debug(f"[client] poll: sending {len(frames_to_send)} frames, batch size {len(blob)}")
         try:
-            resp = await self.http.post(self.server_url, params=params, content=b64u_encode(blob))
+            resp = await self.http.post(self.server_url, params=params, headers=headers, content=b64u_encode(blob))
             resp.raise_for_status()
         except Exception as e:
             logger.error(f"[client] poll request failed: {e}")

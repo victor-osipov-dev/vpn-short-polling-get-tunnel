@@ -218,7 +218,9 @@ class SessionManager:
 async def poll_handler(request: web.Request):
     app = request.app
     qs = request.query
-    cid_b64, ts, mac = qs.get("cid"), qs.get("t"), qs.get("mac")
+    ts = qs.get("t")
+    cid_b64 = request.headers.get("X-Cid")
+    mac = request.headers.get("X-Mac")
     if not all([cid_b64, ts, mac]):
         return web.Response(status=400, text="missing params")
 
