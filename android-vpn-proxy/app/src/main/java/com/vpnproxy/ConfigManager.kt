@@ -45,7 +45,7 @@ data class ProxyConfig(
         }
     }
 
-    fun toPrettyJson(): String = toJson().toString(2)
+    fun toPrettyJson(): String = toJson().toString(2).replace("\\/", "/")
 }
 
 class ConfigManager(private val context: Context) {
@@ -87,7 +87,7 @@ class ConfigManager(private val context: Context) {
 
     fun loadRaw(): String {
         if (!configFile.exists()) return ProxyConfig().toPrettyJson()
-        return configFile.readText()
+        return configFile.readText().replace("\\/", "/")
     }
 
     fun parseRaw(json: String): ProxyConfig? {

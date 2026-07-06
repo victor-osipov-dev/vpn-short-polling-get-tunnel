@@ -1,4 +1,4 @@
-# VPN Proxy – Android app
+# Short Polling VPN – Android app
 
 An Android wrapper for the Python vpn-poller. Runs the SOCKS5 proxy client
 on the device using Chaquopy (embedded CPython).

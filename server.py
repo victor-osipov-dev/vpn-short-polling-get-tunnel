@@ -310,7 +310,7 @@ def build_app(cfg: dict) -> web.Application:
             body="""<!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VPN Proxy</title>
+<title>Short Polling VPN</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -328,7 +328,7 @@ p{color:rgba(255,255,255,.7);font-size:15px;line-height:1.6;margin-bottom:24px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 </style></head>
 <body><div class="card">
-<h1>VPN Proxy</h1>
+<h1>Short Polling VPN</h1>
 <p>This server is running a secure tunnel proxy.<br>
 Direct access is disabled for security reasons.</p>
 <div class="status">Service active</div>

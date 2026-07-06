@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VPN Proxy</string>
+    <string name="app_name">Short Polling VPN</string>
     <string name="channel_name">Proxy Service</string>
-    <string name="channel_desc">Foreground service for VPN proxy</string>
+    <string name="channel_desc">Foreground service for Short Polling VPN</string>
     <string name="notification_running">Proxy is running</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>

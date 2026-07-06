@@ -8,7 +8,14 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -18,6 +25,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -78,7 +86,7 @@ fun MainScreen(configManager: ConfigManager, logs: SnapshotStateList<String>) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("VPN Proxy") },
+                title = { Text("Short Polling VPN") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -208,7 +216,8 @@ fun SimpleConfigTab(configManager: ConfigManager) {
             )
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Verify TLS:", color = MaterialTheme.colorScheme.onSurface)
             Switch(checked = cfg.verifyTls,
                 onCheckedChange = { save(cfg.copy(verifyTls = it)) })
@@ -300,25 +309,99 @@ fun RawConfigTab(configManager: ConfigManager) {
 
 @Composable
 fun LogTab(logs: SnapshotStateList<String>) {
-    val scroll = rememberScrollState()
+    val listState = rememberLazyListState()
+    val selectedIndices = remember { mutableStateListOf<Int>() }
+    var autoScroll by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    val evenColor = MaterialTheme.colorScheme.surface
+    val oddColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    val selectedColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+
     LaunchedEffect(logs.size) {
-        scroll.animateScrollTo(scroll.maxValue)
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scroll)
-            .padding(12.dp)
-    ) {
-        logs.forEach { log ->
-            Text(
-                text = log,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
+        if (autoScroll && logs.isNotEmpty()) {
+            listState.animateScrollToItem(logs.size - 1)
         }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Action bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Auto-scroll:", fontSize = 12.sp,
+                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+            Checkbox(checked = autoScroll, onCheckedChange = { autoScroll = it },
+                     modifier = Modifier.height(24.dp))
+            Spacer(Modifier.weight(1f))
+            SmallButton("Copy all") {
+                val text = logs.joinToString("\n")
+                val clip = ClipData.newPlainText("proxy_log", text)
+                context.getSystemService<ClipboardManager>()?.setPrimaryClip(clip)
+            }
+            SmallButton("Copy sel") {
+                val text = selectedIndices.sorted().map { logs[it] }.joinToString("\n")
+                if (text.isNotEmpty()) {
+                    val clip = ClipData.newPlainText("proxy_log", text)
+                    context.getSystemService<ClipboardManager>()?.setPrimaryClip(clip)
+                }
+            }
+            SmallButton("Clear") {
+                logs.clear()
+                selectedIndices.clear()
+            }
+        }
+
+        // Log list
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 4.dp)
+        ) {
+            itemsIndexed(logs) { index, log ->
+                val isSelected = index in selectedIndices
+                val bg = when {
+                    isSelected -> selectedColor
+                    index % 2 == 0 -> evenColor
+                    else -> oddColor
+                }
+                Text(
+                    text = log,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(bg)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    if (isSelected) selectedIndices.remove(index)
+                                    else selectedIndices.add(index)
+                                }
+                            )
+                        }
+                        .padding(horizontal = 8.dp, vertical = 1.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SmallButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        )
+    ) {
+        Text(text, fontSize = 11.sp)
     }
 }
 

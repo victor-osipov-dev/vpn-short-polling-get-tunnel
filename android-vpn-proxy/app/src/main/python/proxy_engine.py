@@ -1,5 +1,5 @@
 """
-VPN proxy engine – adapted for Android + Chaquopy.
+Short Polling VPN engine – adapted for Android + Chaquopy.
 Protocol, crypto, SOCKS5 server, and polling loop in one file.
 Config is read from JSON (passed by Kotlin via CONFIG_PATH env or default path).
 """
@@ -411,6 +411,18 @@ async def run_socks5_server(tunnel, bind_host, bind_port):
         await _server.serve_forever()
 
 
+class LogCallbackHandler(logging.Handler):
+    def __init__(self, cb):
+        super().__init__()
+        self.cb = cb
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.cb(msg)
+        except Exception:
+            pass
+
+
 def _run(config_path: str, log_cb):
     global _loop, _tunnel, _server
     try:
@@ -418,6 +430,18 @@ def _run(config_path: str, log_cb):
         _loop = asyncio.get_event_loop()
 
         cfg = load_config(config_path)
+
+        # Configure Python logging from config file
+        log_level = cfg.get("logging", {}).get("level", "INFO").upper()
+        root = logging.getLogger()
+        root.setLevel(getattr(logging, log_level, logging.INFO))
+        ch = LogCallbackHandler(log_cb)
+        ch.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        root.addHandler(ch)
+
+        logger.info("Log level set to %s", log_level)
+        logger.debug("Config loaded: server_url=%s", cfg.get("client", {}).get("server_url"))
+
         _tunnel = ClientTunnel(cfg)
         _tunnel.set_log_callback(log_cb)
 
@@ -435,13 +459,13 @@ def _run(config_path: str, log_cb):
         if log_cb:
             log_cb(traceback.format_exc())
     finally:
+        root.handlers = [h for h in root.handlers if not isinstance(h, LogCallbackHandler)]
         if _loop:
             if _server:
                 _server.close()
             if _tunnel:
                 _loop.run_until_complete(_tunnel.stop())
             _loop.stop()
-            # _loop.close()  # closing might be risky if tasks are still running
         _loop = None
         _tunnel = None
         _server = None
