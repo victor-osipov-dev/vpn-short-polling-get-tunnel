@@ -7,7 +7,8 @@ client:
   socks5:
     bind_host: 127.0.0.1
     bind_port: 8888
-  server_url: "https://YOUR_SERVER_IP:8443/poll"
+  server_url: "https://YOUR_SERVER_IP:8443"
+  poll_path: "/poll"          # путь VPN-ручки (можно сменить для маскировки)
   poll_interval_ms: 200
   poll_jitter_ms: 50
   max_chunk_bytes: 4096
@@ -16,6 +17,7 @@ client:
 server:
   bind_host: 0.0.0.0
   bind_port: 8443
+  poll_path: "/poll"          # путь VPN-ручки (можно сменить для маскировки)
   max_chunk_bytes: 4096
   idle_timeout_seconds: 200
   tls:

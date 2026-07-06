@@ -274,7 +274,42 @@ def build_app(cfg: dict) -> web.Application:
         max_chunk_bytes=int(server_cfg.get("max_chunk_bytes", 4096)),
         idle_timeout=int(server_cfg.get("idle_timeout_seconds", 120)),
     )
-    app.router.add_post("/poll", poll_handler)
+    poll_path = server_cfg.get("poll_path", "/poll")
+    app.router.add_post(poll_path, poll_handler)
+
+    async def stub_handler(request):
+        return web.Response(
+            content_type="text/html; charset=utf-8",
+            body="""<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VPN Proxy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);min-height:100vh;
+  display:flex;align-items:center;justify-content:center;color:#fff}
+.card{background:rgba(255,255,255,.08);backdrop-filter:blur(12px);
+  border-radius:24px;padding:48px 40px;text-align:center;max-width:440px;
+  box-shadow:0 25px 50px -12px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1)}
+h1{font-size:28px;font-weight:600;margin-bottom:8px}
+p{color:rgba(255,255,255,.7);font-size:15px;line-height:1.6;margin-bottom:24px}
+.status{display:inline-flex;align-items:center;gap:8px;
+  background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);
+  border-radius:999px;padding:6px 18px;font-size:14px;font-weight:500}
+.status::before{content:'';width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style></head>
+<body><div class="card">
+<h1>VPN Proxy</h1>
+<p>This server is running a secure tunnel proxy.<br>
+Direct access is disabled for security reasons.</p>
+<div class="status">Service active</div>
+</div></body>
+</html>""",
+        )
+
+    app.router.add_get("/{tail:.*}", stub_handler)
 
     async def _start_background(app):
         app["reaper_task"] = asyncio.create_task(app["session_mgr"].reap_idle_clients())

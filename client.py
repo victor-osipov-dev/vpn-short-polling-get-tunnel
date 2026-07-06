@@ -58,7 +58,9 @@ class ClientTunnel:
         sec_cfg = cfg["security"]
 
         self.client_id = os.urandom(16)
-        self.server_url = client_cfg["server_url"]
+        self.server_base = client_cfg["server_url"].rstrip("/")
+        self.poll_path = client_cfg.get("poll_path", "/poll")
+        self.server_url = self.server_base + self.poll_path
         self.poll_interval_ms = int(client_cfg.get("poll_interval_ms", 200))
         self.poll_jitter_ms = int(client_cfg.get("poll_jitter_ms", 50))
         self.max_chunk_bytes = int(client_cfg.get("max_chunk_bytes", 4096))
