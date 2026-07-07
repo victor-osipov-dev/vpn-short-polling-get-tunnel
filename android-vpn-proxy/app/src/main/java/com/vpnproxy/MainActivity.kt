@@ -405,7 +405,7 @@ fun LogTab(logs: SnapshotStateList<LogEntry>, autoScroll: Boolean, onAutoScrollC
                         .background(bg)
                         .pointerInput(entry.id, isSelected) {
                             detectTapGestures(
-                                onLongPress = {
+                                onTap = {
                                     if (entry.id in selectedIds) selectedIds.remove(entry.id)
                                     else selectedIds.add(entry.id)
                                 }
