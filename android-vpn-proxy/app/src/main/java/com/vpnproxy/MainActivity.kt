@@ -337,14 +337,14 @@ fun LogTab(logs: SnapshotStateList<LogEntry>, autoScroll: Boolean, onAutoScrollC
 
     LaunchedEffect(logs.size, autoScroll) {
         if (autoScroll && logs.isNotEmpty()) {
-            listState.animateScrollToItem(logs.size - 1)
+            try { listState.animateScrollToItem(logs.size - 1) } catch (_: Exception) { }
         }
     }
 
     // Scroll to bottom immediately when auto-scroll is re-enabled
     LaunchedEffect(autoScroll) {
         if (autoScroll && logs.isNotEmpty()) {
-            listState.animateScrollToItem(logs.size - 1)
+            try { listState.animateScrollToItem(logs.size - 1) } catch (_: Exception) { }
         }
     }
 
@@ -388,7 +388,7 @@ fun LogTab(logs: SnapshotStateList<LogEntry>, autoScroll: Boolean, onAutoScrollC
                 .fillMaxSize()
                 .padding(horizontal = 4.dp)
         ) {
-            itemsIndexed(logs) { index, entry ->
+            itemsIndexed(logs, key = { _, entry -> entry.id }) { index, entry ->
                 val isSelected = entry.id in selectedIds
                 val bg = when {
                     isSelected -> selectedColor
