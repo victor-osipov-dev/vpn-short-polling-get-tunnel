@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(configManager: ConfigManager, logs: SnapshotStateList<String>) {
     var tab by remember { mutableIntStateOf(0) }
     var isRunning by remember { mutableStateOf(false) }
+    var autoScroll by remember { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
@@ -132,7 +133,7 @@ fun MainScreen(configManager: ConfigManager, logs: SnapshotStateList<String>) {
             when (tab) {
                 0 -> SimpleConfigTab(configManager)
                 1 -> RawConfigTab(configManager)
-                2 -> LogTab(logs)
+                2 -> LogTab(logs, autoScroll, { autoScroll = it })
             }
         }
     }
@@ -322,16 +323,22 @@ fun RawConfigTab(configManager: ConfigManager) {
 // ── Log tab ───────────────────────────────────────────────────────────
 
 @Composable
-fun LogTab(logs: SnapshotStateList<String>) {
+fun LogTab(logs: SnapshotStateList<String>, autoScroll: Boolean, onAutoScrollChange: (Boolean) -> Unit) {
     val listState = rememberLazyListState()
     val selectedIndices = remember { mutableStateListOf<Int>() }
-    var autoScroll by remember { mutableStateOf(true) }
     val context = LocalContext.current
     val evenColor = MaterialTheme.colorScheme.surface
-    val oddColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    val oddColor = Color(0xFF0F0F23)
     val selectedColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
 
-    LaunchedEffect(logs.size) {
+    LaunchedEffect(logs.size, autoScroll) {
+        if (autoScroll && logs.isNotEmpty()) {
+            listState.animateScrollToItem(logs.size - 1)
+        }
+    }
+
+    // Scroll to bottom immediately when auto-scroll is re-enabled
+    LaunchedEffect(autoScroll) {
         if (autoScroll && logs.isNotEmpty()) {
             listState.animateScrollToItem(logs.size - 1)
         }
@@ -348,7 +355,7 @@ fun LogTab(logs: SnapshotStateList<String>) {
         ) {
             Text("Auto-scroll:", fontSize = 12.sp,
                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-            Checkbox(checked = autoScroll, onCheckedChange = { autoScroll = it },
+            Checkbox(checked = autoScroll, onCheckedChange = onAutoScrollChange,
                      modifier = Modifier.height(24.dp))
             Spacer(Modifier.weight(1f))
             SmallButton("Copy all") {
@@ -412,7 +419,8 @@ fun SmallButton(text: String, onClick: () -> Unit) {
         onClick = onClick,
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+            contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
         Text(text, fontSize = 11.sp)
