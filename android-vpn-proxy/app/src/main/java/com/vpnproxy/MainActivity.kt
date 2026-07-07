@@ -388,7 +388,7 @@ fun LogTab(logs: SnapshotStateList<LogEntry>, autoScroll: Boolean, onAutoScrollC
                 .fillMaxSize()
                 .padding(horizontal = 4.dp)
         ) {
-            itemsIndexed(logs, key = { _, entry -> entry.id }) { index, entry ->
+            itemsIndexed(logs) { index, entry ->
                 val isSelected = entry.id in selectedIds
                 val bg = when {
                     isSelected -> selectedColor
