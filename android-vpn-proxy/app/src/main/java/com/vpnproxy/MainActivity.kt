@@ -222,6 +222,20 @@ fun SimpleConfigTab(configManager: ConfigManager) {
             Switch(checked = cfg.verifyTls,
                 onCheckedChange = { save(cfg.copy(verifyTls = it)) })
         }
+
+        Text("Idle timeout:",
+             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Enabled:", color = MaterialTheme.colorScheme.onSurface)
+            Switch(checked = cfg.idleTimeoutEnabled,
+                onCheckedChange = { save(cfg.copy(idleTimeoutEnabled = it)) })
+            Spacer(Modifier.weight(1f))
+            ConfigTextField("Timeout (s)", cfg.idleTimeoutSeconds.toString(),
+                modifier = Modifier.width(120.dp).weight(1f),
+                keyboardType = KeyboardType.Number
+            ) { it.toIntOrNull()?.let { v -> save(cfg.copy(idleTimeoutSeconds = v)) } }
+        }
     }
 }
 

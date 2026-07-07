@@ -17,6 +17,8 @@ data class ProxyConfig(
     val socksBindPort: Int = 8888,
     val psk: String = "vTvesbK6BIh+ZPJf6pn4b+s7F+RvMi9ulrkFlPfX2qo=",
     val hmacWindowSeconds: Int = 30,
+    val idleTimeoutEnabled: Boolean = false,
+    val idleTimeoutSeconds: Int = 300,
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
@@ -34,6 +36,10 @@ data class ProxyConfig(
                 put("verify_tls", verifyTls)
                 put("poll_method", pollMethod)
                 put("poll_data_in", pollDataIn)
+                put("idle_timeout", JSONObject().apply {
+                    put("enabled", idleTimeoutEnabled)
+                    put("seconds", idleTimeoutSeconds)
+                })
             })
             put("security", JSONObject().apply {
                 put("psk", psk)
@@ -58,6 +64,7 @@ class ConfigManager(private val context: Context) {
             val client = json.getJSONObject("client")
             val socks = client.getJSONObject("socks5")
             val security = json.getJSONObject("security")
+            val idleTimeout = client.optJSONObject("idle_timeout") ?: JSONObject()
             ProxyConfig(
                 serverUrl = client.optString("server_url", ProxyConfig().serverUrl),
                 pollPath = client.optString("poll_path", ProxyConfig().pollPath),
@@ -71,6 +78,8 @@ class ConfigManager(private val context: Context) {
                 socksBindPort = socks.optInt("bind_port", ProxyConfig().socksBindPort),
                 psk = security.optString("psk", ProxyConfig().psk),
                 hmacWindowSeconds = security.optInt("hmac_window_seconds", ProxyConfig().hmacWindowSeconds),
+                idleTimeoutEnabled = idleTimeout.optBoolean("enabled", false),
+                idleTimeoutSeconds = idleTimeout.optInt("seconds", 300),
             )
         } catch (_: Exception) {
             ProxyConfig()
@@ -96,6 +105,7 @@ class ConfigManager(private val context: Context) {
             val client = obj.getJSONObject("client")
             val socks = client.getJSONObject("socks5")
             val security = obj.getJSONObject("security")
+            val idleTimeout = client.optJSONObject("idle_timeout") ?: JSONObject()
             ProxyConfig(
                 serverUrl = client.optString("server_url", ProxyConfig().serverUrl),
                 pollPath = client.optString("poll_path", ProxyConfig().pollPath),
@@ -109,6 +119,8 @@ class ConfigManager(private val context: Context) {
                 socksBindPort = socks.optInt("bind_port", ProxyConfig().socksBindPort),
                 psk = security.optString("psk", ProxyConfig().psk),
                 hmacWindowSeconds = security.optInt("hmac_window_seconds", ProxyConfig().hmacWindowSeconds),
+                idleTimeoutEnabled = idleTimeout.optBoolean("enabled", false),
+                idleTimeoutSeconds = idleTimeout.optInt("seconds", 300),
             )
         } catch (_: Exception) {
             null

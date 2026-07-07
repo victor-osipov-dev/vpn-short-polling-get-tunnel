@@ -71,6 +71,12 @@ class ClientTunnel:
         self.enc_key = derive_key(sec_cfg["psk"])
         self.hmac_key = derive_hmac_key(sec_cfg["psk"])
 
+        idle_cfg = client_cfg.get("idle_timeout", {})
+        self.idle_timeout_enabled = idle_cfg.get("enabled", False)
+        self.idle_timeout_seconds = int(idle_cfg.get("seconds", 300))
+        self._last_activity = time.monotonic()
+        self._idle_logged = False
+
         self.sessions: dict = {}
         self.lock = asyncio.Lock()
         self.http = httpx.AsyncClient(http2=True, verify=verify_tls, timeout=15.0)
@@ -87,6 +93,7 @@ class ClientTunnel:
         sess.pending_new = frame
         async with self.lock:
             self.sessions[sid] = sess
+        self._last_activity = time.monotonic()
         logger.debug("new session %s -> %s:%s", sid.hex()[:8], host, port)
         return sid
 
@@ -95,6 +102,7 @@ class ClientTunnel:
             sess = self.sessions.get(sid)
             if sess:
                 sess.outgoing.extend(data)
+        self._last_activity = time.monotonic()
 
     async def mark_closed(self, sid: bytes):
         async with self.lock:
@@ -106,6 +114,24 @@ class ClientTunnel:
 
     async def poll_loop(self):
         while not self._stop:
+            if self.idle_timeout_enabled:
+                idle_elapsed = time.monotonic() - self._last_activity
+                if idle_elapsed >= self.idle_timeout_seconds:
+                    if not self._idle_logged:
+                        logger.info("idle timeout (%ds): pausing polls", self.idle_timeout_seconds)
+                        self._idle_logged = True
+                    async with self.lock:
+                        for sid, sess in list(self.sessions.items()):
+                            try:
+                                sess.writer.close()
+                            except Exception:
+                                pass
+                        self.sessions.clear()
+                    await asyncio.sleep(0.5)
+                    continue
+                elif self._idle_logged:
+                    logger.info("activity resumed, resuming polls")
+                    self._idle_logged = False
             try:
                 await self._poll_once()
             except Exception as e:
@@ -186,6 +212,7 @@ class ClientTunnel:
                         await sess.writer.drain()
                     except Exception as e:
                         logger.error(f"[client] session {sid} write error: {e}")
+                    self._last_activity = time.monotonic()
                 if f.flags & FLAG_FIN:
                     logger.info(f"[client] session {sid} FIN received")
                     try:
