@@ -34,13 +34,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
+data class LogEntry(val id: Long, val text: String)
+
 class MainActivity : ComponentActivity() {
     private lateinit var configManager: ConfigManager
-    private val logs = mutableStateListOf<String>()
+    private var logSeq = 0L
+    private val logs = mutableStateListOf<LogEntry>()
     private val logReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.getStringExtra("msg")?.let { msg ->
-                logs.add(msg)
+                logs.add(LogEntry(++logSeq, msg))
                 if (logs.size > 500) logs.removeAt(0)
             }
         }
@@ -79,7 +82,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(configManager: ConfigManager, logs: SnapshotStateList<String>) {
+fun MainScreen(configManager: ConfigManager, logs: SnapshotStateList<LogEntry>) {
     var tab by remember { mutableIntStateOf(0) }
     var isRunning by remember { mutableStateOf(false) }
     var autoScroll by remember { mutableStateOf(true) }
@@ -104,11 +107,12 @@ fun MainScreen(configManager: ConfigManager, logs: SnapshotStateList<String>) {
             ) {
                 Button(
                     onClick = {
+                        val seq = logs.size.toLong() + 1
                         if (isRunning) {
-                            logs.add("Stopping proxy service...")
+                            logs.add(LogEntry(seq, "Stopping proxy service..."))
                             stopProxy(context)
                         } else {
-                            logs.add("Start button clicked. Launching service...")
+                            logs.add(LogEntry(seq, "Start button clicked. Launching service..."))
                             startProxy(context)
                         }
                         isRunning = !isRunning
@@ -323,9 +327,9 @@ fun RawConfigTab(configManager: ConfigManager) {
 // ── Log tab ───────────────────────────────────────────────────────────
 
 @Composable
-fun LogTab(logs: SnapshotStateList<String>, autoScroll: Boolean, onAutoScrollChange: (Boolean) -> Unit) {
+fun LogTab(logs: SnapshotStateList<LogEntry>, autoScroll: Boolean, onAutoScrollChange: (Boolean) -> Unit) {
     val listState = rememberLazyListState()
-    val selectedIndices = remember { mutableStateListOf<Int>() }
+    val selectedIds = remember { mutableStateListOf<Long>() }
     val context = LocalContext.current
     val evenColor = MaterialTheme.colorScheme.surface
     val oddColor = Color(0xFF0F0F23)
@@ -359,12 +363,13 @@ fun LogTab(logs: SnapshotStateList<String>, autoScroll: Boolean, onAutoScrollCha
                      modifier = Modifier.height(24.dp))
             Spacer(Modifier.weight(1f))
             SmallButton("Copy all") {
-                val text = logs.joinToString("\n")
+                val text = logs.joinToString("\n") { it.text }
                 val clip = ClipData.newPlainText("proxy_log", text)
                 (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
             }
             SmallButton("Copy sel") {
-                val text = selectedIndices.sorted().map { logs[it] }.joinToString("\n")
+                val text = logs.filter { it.id in selectedIds }
+                    .sortedBy { it.id }.joinToString("\n") { it.text }
                 if (text.isNotEmpty()) {
                     val clip = ClipData.newPlainText("proxy_log", text)
                     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
@@ -372,7 +377,7 @@ fun LogTab(logs: SnapshotStateList<String>, autoScroll: Boolean, onAutoScrollCha
             }
             SmallButton("Clear") {
                 logs.clear()
-                selectedIndices.clear()
+                selectedIds.clear()
             }
         }
 
@@ -383,26 +388,26 @@ fun LogTab(logs: SnapshotStateList<String>, autoScroll: Boolean, onAutoScrollCha
                 .fillMaxSize()
                 .padding(horizontal = 4.dp)
         ) {
-            itemsIndexed(logs) { index, log ->
-                val isSelected = index in selectedIndices
+            itemsIndexed(logs, key = { _, entry -> entry.id }) { index, entry ->
+                val isSelected = entry.id in selectedIds
                 val bg = when {
                     isSelected -> selectedColor
                     index % 2 == 0 -> evenColor
                     else -> oddColor
                 }
                 Text(
-                    text = log,
+                    text = entry.text,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(bg)
-                        .pointerInput(Unit) {
+                        .pointerInput(entry.id, isSelected) {
                             detectTapGestures(
                                 onLongPress = {
-                                    if (isSelected) selectedIndices.remove(index)
-                                    else selectedIndices.add(index)
+                                    if (entry.id in selectedIds) selectedIds.remove(entry.id)
+                                    else selectedIds.add(entry.id)
                                 }
                             )
                         }
